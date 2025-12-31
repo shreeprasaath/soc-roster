@@ -178,56 +178,29 @@
             color: var(--text-secondary);
         }
 
-        .error-screen {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 1rem;
-            padding: 3rem;
-            text-align: center;
-            margin: 2rem 0;
-        }
-
-        :root[data-theme="light"] .error-screen {
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
-            border: 1px solid #cbd5e1;
-        }
-
-        .error-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .error-title {
-            font-size: 1.5rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .error-message {
-            color: var(--text-secondary);
-            margin-bottom: 2rem;
-        }
-
         .upload-section {
             background: var(--bg-card);
             border: 2px dashed var(--border);
             border-radius: 1rem;
-            padding: 3rem;
+            padding: 4rem 3rem;
             text-align: center;
-            margin-bottom: 2rem;
+            margin: 4rem auto;
+            max-width: 600px;
             transition: all 0.3s ease;
             cursor: pointer;
+            animation: fadeIn 0.6s ease;
         }
 
         :root[data-theme="light"] .upload-section {
-            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px 0 rgba(0, 0, 0, 0.1), 0 2px 6px -1px rgba(0, 0, 0, 0.08);
             border: 2px dashed #94a3b8;
         }
 
         .upload-section:hover {
             border-color: var(--accent-blue);
             background: rgba(74, 158, 255, 0.05);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
         }
 
         .upload-section.dragover {
@@ -236,20 +209,27 @@
         }
 
         .upload-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
+            font-size: 5rem;
+            margin-bottom: 1.5rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
         }
 
         .upload-text {
-            font-size: 1.25rem;
-            color: var(--text-secondary);
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-primary);
             margin-bottom: 1rem;
         }
 
         .upload-hint {
-            font-size: 0.875rem;
+            font-size: 1rem;
             color: var(--text-secondary);
-            opacity: 0.7;
+            opacity: 0.8;
         }
 
         #fileInput {
@@ -768,6 +748,36 @@
             line-height: 1.6;
         }
 
+        .date-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .date-input-group input,
+        .date-input-group select {
+            padding: 0.875rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+        }
+
+        :root[data-theme="light"] .date-input-group input,
+        :root[data-theme="light"] .date-input-group select {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+        }
+
+        .date-input-group input:focus,
+        .date-input-group select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
         .legend {
             display: flex;
             justify-content: center;
@@ -846,19 +856,11 @@
             <div class="loading-text">Loading roster...</div>
         </div>
 
-        <!-- Error Screen -->
-        <div class="error-screen" id="errorScreen" style="display: none;">
-            <div class="error-icon">📭</div>
-            <div class="error-title">Roster Not Available</div>
-            <div class="error-message" id="errorMessage">The roster for this month hasn't been uploaded yet.</div>
-            <button class="btn" onclick="showUploadSection()">📤 Upload Manually</button>
-        </div>
-
-        <!-- Manual Upload Section (Hidden initially) -->
+        <!-- Upload Section (Shows when no roster found or on error) -->
         <div class="upload-section" id="uploadSection" style="display: none;" onclick="document.getElementById('fileInput').click()">
             <div class="upload-icon">📤</div>
             <div class="upload-text">Click or drag Excel file to upload</div>
-            <div class="upload-hint">Upload roster manually (not saved to repository)</div>
+            <div class="upload-hint">Supports .xlsx and .xls files • Not saved to repository</div>
             <input type="file" id="fileInput" accept=".xlsx,.xls">
         </div>
 
@@ -936,6 +938,37 @@
             </div>
             <div style="position: relative; height: 300px;">
                 <canvas id="shiftChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Month/Year Input Modal -->
+    <div class="modal" id="dateModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">Enter Month & Year</div>
+            </div>
+            <div class="date-input-group">
+                <label style="color: var(--text-secondary); font-weight: 600;">Month:</label>
+                <select id="monthInput">
+                    <option value="1">January</option>
+                    <option value="2">February</option>
+                    <option value="3">March</option>
+                    <option value="4">April</option>
+                    <option value="5">May</option>
+                    <option value="6">June</option>
+                    <option value="7">July</option>
+                    <option value="8">August</option>
+                    <option value="9">September</option>
+                    <option value="10">October</option>
+                    <option value="11">November</option>
+                    <option value="12">December</option>
+                </select>
+                
+                <label style="color: var(--text-secondary); font-weight: 600;">Year:</label>
+                <input type="number" id="yearInput" min="2020" max="2100" value="2026" placeholder="Enter year">
+                
+                <button class="btn" onclick="confirmDateManual()" style="margin-top: 1rem;">Confirm</button>
             </div>
         </div>
     </div>
@@ -1054,28 +1087,16 @@
                     const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
                     const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
                     
-                    // Ask for month and year
-                    const month = parseInt(prompt('Enter month number (1-12):', currentMonth));
-                    const year = parseInt(prompt('Enter year:', currentYear));
+                    // Store the parsed data temporarily
+                    window.tempUploadData = jsonData;
                     
-                    if (!month || !year || month < 1 || month > 12) {
-                        alert('Invalid month or year');
-                        hideLoading();
-                        return;
-                    }
-                    
-                    currentMonth = month;
-                    currentYear = year;
-                    
-                    parseRosterData(jsonData, year, month);
-                    isManualUpload = true;
-                    
+                    // Show modal for month/year input
                     hideLoading();
-                    hideError();
-                    document.getElementById('uploadSection').style.display = 'none';
-                    document.getElementById('mainContent').classList.add('active');
+                    document.getElementById('dateModal').classList.add('active');
                     
-                    renderEverything();
+                    // Set default values
+                    document.getElementById('monthInput').value = currentMonth;
+                    document.getElementById('yearInput').value = currentYear;
                     
                 } catch (error) {
                     alert('Error reading file: ' + error.message);
@@ -1083,6 +1104,29 @@
                 }
             };
             reader.readAsArrayBuffer(file);
+        }
+
+        function confirmDateManual() {
+            const month = parseInt(document.getElementById('monthInput').value);
+            const year = parseInt(document.getElementById('yearInput').value);
+            
+            if (!month || !year || month < 1 || month > 12) {
+                alert('Invalid month or year');
+                return;
+            }
+            
+            currentMonth = month;
+            currentYear = year;
+            
+            parseRosterData(window.tempUploadData, year, month);
+            isManualUpload = true;
+            
+            document.getElementById('dateModal').classList.remove('active');
+            hideError();
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('mainContent').classList.add('active');
+            
+            renderEverything();
         }
 
         function parseRosterData(jsonData, year, month) {
@@ -1153,7 +1197,6 @@
         // UI State Management
         function showLoading() {
             document.getElementById('loadingScreen').style.display = 'flex';
-            document.getElementById('errorScreen').style.display = 'none';
             document.getElementById('uploadSection').style.display = 'none';
             document.getElementById('mainContent').classList.remove('active');
         }
@@ -1164,18 +1207,12 @@
 
         function showError(message) {
             hideLoading();
-            document.getElementById('errorMessage').textContent = message;
-            document.getElementById('errorScreen').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'block';
             document.getElementById('mainContent').classList.remove('active');
         }
 
         function hideError() {
-            document.getElementById('errorScreen').style.display = 'none';
-        }
-
-        function showUploadSection() {
-            document.getElementById('errorScreen').style.display = 'none';
-            document.getElementById('uploadSection').style.display = 'block';
+            document.getElementById('uploadSection').style.display = 'none';
         }
 
         // Render everything
@@ -1670,10 +1707,17 @@
             }
         });
 
+        document.getElementById('dateModal').addEventListener('click', (e) => {
+            if (e.target.id === 'dateModal') {
+                document.getElementById('dateModal').classList.remove('active');
+            }
+        });
+
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeDayModal();
                 closeChartModal();
+                document.getElementById('dateModal').classList.remove('active');
             }
         });
 
