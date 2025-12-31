@@ -1,0 +1,1782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOC Shift Roster Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root[data-theme="dark"] {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #151b2e;
+            --bg-card: #1a2236;
+            --accent-blue: #4a9eff;
+            --accent-cyan: #2dd4bf;
+            --accent-purple: #a78bfa;
+            --accent-orange: #fb923c;
+            --text-primary: #f0f4f8;
+            --text-secondary: #94a3b8;
+            --border: #2d3748;
+            --morning: #fbbf24;
+            --afternoon: #60a5fa;
+            --night: #8b5cf6;
+            --off: #10b981;
+            --off-bg: rgba(16, 185, 129, 0.15);
+        }
+
+        :root[data-theme="light"] {
+            --bg-primary: #f1f5f9;
+            --bg-secondary: #ffffff;
+            --bg-card: #ffffff;
+            --accent-blue: #2563eb;
+            --accent-cyan: #0891b2;
+            --accent-purple: #7c3aed;
+            --accent-orange: #ea580c;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --border: #cbd5e1;
+            --morning: #f59e0b;
+            --afternoon: #3b82f6;
+            --night: #7c3aed;
+            --off: #059669;
+            --off-bg: rgba(5, 150, 105, 0.1);
+            --shadow-light: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            border-bottom: 2px solid var(--border);
+            padding: 2.5rem 2rem;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            animation: slideDown 0.6s ease;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            animation: fadeIn 0.8s ease 0.2s both;
+        }
+
+        .theme-toggle {
+            position: absolute;
+            right: 2rem;
+            top: 50%;
+            transform: translateY(-50%);
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 2rem;
+            padding: 0.5rem;
+            display: flex;
+            gap: 0.25rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .theme-toggle:hover {
+            border-color: var(--accent-blue);
+        }
+
+        .theme-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 1.5rem;
+            font-weight: 600;
+            font-size: 0.875rem;
+            transition: all 0.3s ease;
+        }
+
+        .theme-btn.active {
+            background: var(--accent-blue);
+            color: white;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .loading-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 60vh;
+            gap: 2rem;
+        }
+
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent-blue);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+        }
+
+        .error-screen {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 3rem;
+            text-align: center;
+            margin: 2rem 0;
+        }
+
+        :root[data-theme="light"] .error-screen {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+        }
+
+        .error-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .error-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .error-message {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .upload-section {
+            background: var(--bg-card);
+            border: 2px dashed var(--border);
+            border-radius: 1rem;
+            padding: 3rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        :root[data-theme="light"] .upload-section {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 2px dashed #94a3b8;
+        }
+
+        .upload-section:hover {
+            border-color: var(--accent-blue);
+            background: rgba(74, 158, 255, 0.05);
+        }
+
+        .upload-section.dragover {
+            border-color: var(--accent-cyan);
+            background: rgba(45, 212, 191, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+        }
+
+        .upload-text {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .upload-hint {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            opacity: 0.7;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        .month-navigation {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .month-nav-btn {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+        }
+
+        .month-nav-btn:hover {
+            border-color: var(--accent-blue);
+            background: rgba(74, 158, 255, 0.1);
+        }
+
+        .month-nav-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .current-month {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            padding: 0.75rem 2rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .employee-selector {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .employee-selector label {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .employee-selector select {
+            padding: 0.75rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            color: var(--text-primary);
+            font-family: 'DM Sans', sans-serif;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .employee-selector select:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.1);
+        }
+
+        .btn {
+            padding: 0.875rem 1.75rem;
+            background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+            color: white;
+            border: none;
+            border-radius: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            font-size: 1rem;
+            font-family: 'DM Sans', sans-serif;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(74, 158, 255, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 158, 255, 0.5);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange));
+            box-shadow: 0 4px 12px rgba(167, 139, 250, 0.3);
+        }
+
+        .btn-secondary:hover {
+            box-shadow: 0 6px 20px rgba(167, 139, 250, 0.5);
+        }
+
+        .content {
+            display: none;
+        }
+
+        .content.active {
+            display: block;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.75rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        :root[data-theme="light"] .stat-card {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-blue));
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-blue);
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .chart-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        :root[data-theme="light"] .chart-container {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+        }
+
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .employee-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.25rem;
+            margin-bottom: 3rem;
+        }
+
+        .employee-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        :root[data-theme="light"] .employee-card {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+        }
+
+        .employee-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-cyan);
+        }
+
+        .employee-card.selected {
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 3px rgba(74, 158, 255, 0.2);
+        }
+
+        .employee-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .shift-breakdown {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .shift-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+        }
+
+        :root[data-theme="light"] .shift-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .shift-label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .shift-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .dot-morning { background: var(--morning); }
+        .dot-afternoon { background: var(--afternoon); }
+        .dot-night { background: var(--night); }
+        .dot-off { background: var(--off); }
+
+        .calendar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        :root[data-theme="light"] .calendar {
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+            border: 1px solid #cbd5e1;
+        }
+
+        .calendar-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .calendar-header h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1rem;
+        }
+
+        .day-header {
+            text-align: center;
+            font-weight: 600;
+            color: var(--text-secondary);
+            padding: 0.75rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .day-cell {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            min-height: 180px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        :root[data-theme="light"] .day-cell {
+            background: #f8fafc;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+        }
+
+        .day-cell.has-off {
+            background: var(--off-bg);
+            border-color: var(--off);
+        }
+
+        .day-cell.has-off .day-number {
+            color: var(--off);
+        }
+
+        .day-cell:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-blue);
+        }
+
+        .day-number {
+            font-weight: 700;
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: var(--accent-blue);
+        }
+
+        .day-name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .shift-section {
+            margin-bottom: 0.5rem;
+        }
+
+        .shift-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.25rem;
+            opacity: 0.8;
+        }
+
+        .shift-morning { color: var(--morning); }
+        .shift-afternoon { color: var(--afternoon); }
+        .shift-night { color: var(--night); }
+        .shift-off { color: var(--off); }
+
+        .shift-names {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(10, 14, 26, 0.95);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: var(--bg-card);
+            border: 2px solid var(--accent-blue);
+            border-radius: 1.5rem;
+            padding: 2.5rem;
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: scaleIn 0.3s ease;
+        }
+
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 2rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--accent-orange);
+            transform: rotate(90deg);
+        }
+
+        .modal-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-shift-item {
+            background: var(--bg-secondary);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            border-left: 4px solid;
+            margin-bottom: 0.75rem;
+        }
+
+        :root[data-theme="light"] .modal-shift-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid;
+        }
+
+        .modal-shift-item.morning { border-left-color: var(--morning); }
+        .modal-shift-item.afternoon { border-left-color: var(--afternoon); }
+        .modal-shift-item.night { border-left-color: var(--night); }
+        .modal-shift-item.off { border-left-color: var(--off); }
+
+        .modal-shift-header {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .modal-shift-people {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            border-top: 1px solid var(--border);
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .calendar-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .day-cell {
+                min-height: auto;
+            }
+
+            .controls {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .employee-selector {
+                flex-direction: column;
+            }
+
+            .theme-toggle {
+                position: static;
+                transform: none;
+                margin: 1rem auto 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="theme-toggle">
+            <button class="theme-btn active" onclick="setTheme('dark')" id="darkBtn">🌙 Dark</button>
+            <button class="theme-btn" onclick="setTheme('light')" id="lightBtn">☀️ Light</button>
+        </div>
+        <h1>🛡️ SOC Shift Roster Viewer</h1>
+        <p>Security Operations Center Schedule</p>
+    </div>
+
+    <div class="container">
+        <!-- Loading Screen -->
+        <div class="loading-screen" id="loadingScreen">
+            <div class="spinner"></div>
+            <div class="loading-text">Loading roster...</div>
+        </div>
+
+        <!-- Error Screen -->
+        <div class="error-screen" id="errorScreen" style="display: none;">
+            <div class="error-icon">📭</div>
+            <div class="error-title">Roster Not Available</div>
+            <div class="error-message" id="errorMessage">The roster for this month hasn't been uploaded yet.</div>
+            <button class="btn" onclick="showUploadSection()">📤 Upload Manually</button>
+        </div>
+
+        <!-- Manual Upload Section (Hidden initially) -->
+        <div class="upload-section" id="uploadSection" style="display: none;" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📤</div>
+            <div class="upload-text">Click or drag Excel file to upload</div>
+            <div class="upload-hint">Upload roster manually (not saved to repository)</div>
+            <input type="file" id="fileInput" accept=".xlsx,.xls">
+        </div>
+
+        <!-- Main Content -->
+        <div class="content" id="mainContent">
+            <!-- Month Navigation -->
+            <div class="month-navigation">
+                <button class="month-nav-btn" onclick="navigateMonth(-1)" id="prevBtn">⬅️ Previous</button>
+                <div class="current-month" id="currentMonthDisplay">January 2026</div>
+                <button class="month-nav-btn" onclick="navigateMonth(1)" id="nextBtn">Next ➡️</button>
+            </div>
+
+            <div class="controls">
+                <div class="employee-selector">
+                    <label>Filter by Employee:</label>
+                    <select id="employeeSelect">
+                        <option value="all">All Employees</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                    <button class="btn" onclick="scrollToCalendar()">📅 View Calendar</button>
+                    <button class="btn" id="showChartBtn" onclick="showChartModal()" style="display: none;">📊 Show Pie Chart</button>
+                    <button class="btn btn-secondary" onclick="downloadAllExcel()">📥 Download All</button>
+                    <button class="btn btn-secondary" id="downloadIndividualBtn" onclick="downloadIndividualExcel()" style="display: none;">👤 Download Individual</button>
+                </div>
+            </div>
+
+            <div id="summary" class="summary"></div>
+            <div id="employeeStats" class="employee-grid"></div>
+
+            <div id="calendar" class="calendar">
+                <div class="calendar-header">
+                    <h2 id="calendarTitle">Calendar</h2>
+                </div>
+                <div class="calendar-grid" id="calendarGrid"></div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--morning);"></div>
+                        <span>Morning (6 AM - 3 PM)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--afternoon);"></div>
+                        <span>Afternoon (2 PM - 11 PM)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--night);"></div>
+                        <span>Night (10 PM - 7 AM)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: var(--off);"></div>
+                        <span>Day Off</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Day Details Modal -->
+    <div class="modal" id="dayModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modalTitle">Day Details</div>
+                <button class="modal-close" onclick="closeDayModal()">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Pie Chart Modal -->
+    <div class="modal" id="chartModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title" id="chartModalTitle">Shift Distribution</div>
+                <button class="modal-close" onclick="closeChartModal()">&times;</button>
+            </div>
+            <div style="position: relative; height: 300px;">
+                <canvas id="shiftChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>SOC Shift Management System | Flexible Fairness Algorithm</p>
+        <p style="margin-top: 0.5rem; font-size: 0.75rem;">⚡ Automatic loading from repository | Manual upload available</p>
+    </div>
+
+    <script>
+        // Configuration
+        const ROSTERS_PATH = './rosters/'; // Folder where Excel files are stored
+        let rosterData = [];
+        let allEmployees = [];
+        let selectedEmployee = 'all';
+        let currentYear = 2026;
+        let currentMonth = 1; // January = 1
+        let shiftChart = null;
+        let isManualUpload = false;
+
+        // Theme handling
+        function setTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('theme', theme);
+            
+            document.getElementById('darkBtn').classList.toggle('active', theme === 'dark');
+            document.getElementById('lightBtn').classList.toggle('active', theme === 'light');
+            
+            if (shiftChart && selectedEmployee !== 'all') {
+                createShiftChart(selectedEmployee);
+            }
+        }
+
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        setTheme(savedTheme);
+
+        // Initialize - try to load current month
+        window.onload = function() {
+            const now = new Date();
+            currentYear = now.getFullYear();
+            currentMonth = now.getMonth() + 1;
+            
+            loadRosterFromRepo(currentYear, currentMonth);
+        };
+
+        // Load roster from repository
+        async function loadRosterFromRepo(year, month) {
+            showLoading();
+            
+            const filename = `${year}-${String(month).padStart(2, '0')}.xlsx`;
+            const filepath = ROSTERS_PATH + filename;
+            
+            try {
+                const response = await fetch(filepath);
+                
+                if (!response.ok) {
+                    throw new Error(`Roster file not found: ${filename}`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                
+                const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                
+                parseRosterData(jsonData, year, month);
+                isManualUpload = false;
+                
+                hideLoading();
+                hideError();
+                document.getElementById('mainContent').classList.add('active');
+                
+                renderEverything();
+                
+            } catch (error) {
+                console.error('Error loading roster:', error);
+                showError(`Could not load roster for ${getMonthName(month)} ${year}`);
+            }
+        }
+
+        // Manual file upload
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file) handleManualUpload(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleManualUpload(file);
+        });
+
+        function handleManualUpload(file) {
+            showLoading();
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+                    
+                    // Ask for month and year
+                    const month = parseInt(prompt('Enter month number (1-12):', currentMonth));
+                    const year = parseInt(prompt('Enter year:', currentYear));
+                    
+                    if (!month || !year || month < 1 || month > 12) {
+                        alert('Invalid month or year');
+                        hideLoading();
+                        return;
+                    }
+                    
+                    currentMonth = month;
+                    currentYear = year;
+                    
+                    parseRosterData(jsonData, year, month);
+                    isManualUpload = true;
+                    
+                    hideLoading();
+                    hideError();
+                    document.getElementById('uploadSection').style.display = 'none';
+                    document.getElementById('mainContent').classList.add('active');
+                    
+                    renderEverything();
+                    
+                } catch (error) {
+                    alert('Error reading file: ' + error.message);
+                    hideLoading();
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function parseRosterData(jsonData, year, month) {
+            rosterData = [];
+            allEmployees = new Set();
+            
+            for (let i = 1; i < jsonData.length; i++) {
+                const row = jsonData[i];
+                if (!row[2] && !row[3] && !row[4] && !row[5]) continue;
+                
+                const morning = parseNames(row[2]);
+                const afternoon = parseNames(row[3]);
+                const night = parseNames(row[4]);
+                const weekOff = parseNames(row[5]);
+                
+                [...morning, ...afternoon, ...night, ...weekOff].forEach(name => allEmployees.add(name));
+                
+                const dayNum = i;
+                const date = new Date(year, month - 1, dayNum);
+                
+                rosterData.push({
+                    date: date.toISOString().split('T')[0],
+                    day: date.toLocaleDateString('en-US', { weekday: 'long' }),
+                    morning,
+                    afternoon,
+                    night,
+                    weekOff
+                });
+            }
+            
+            allEmployees = Array.from(allEmployees).sort();
+        }
+
+        function parseNames(cellValue) {
+            if (!cellValue) return [];
+            return String(cellValue)
+                .split(/,|\n/)
+                .map(n => n.trim())
+                .filter(n => n && n.length > 0);
+        }
+
+        // Navigation
+        function navigateMonth(direction) {
+            currentMonth += direction;
+            
+            if (currentMonth > 12) {
+                currentMonth = 1;
+                currentYear++;
+            } else if (currentMonth < 1) {
+                currentMonth = 12;
+                currentYear--;
+            }
+            
+            loadRosterFromRepo(currentYear, currentMonth);
+        }
+
+        function updateMonthDisplay() {
+            const monthName = getMonthName(currentMonth);
+            document.getElementById('currentMonthDisplay').textContent = `${monthName} ${currentYear}`;
+        }
+
+        function getMonthName(month) {
+            const names = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December'];
+            return names[month - 1];
+        }
+
+        // UI State Management
+        function showLoading() {
+            document.getElementById('loadingScreen').style.display = 'flex';
+            document.getElementById('errorScreen').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'none';
+            document.getElementById('mainContent').classList.remove('active');
+        }
+
+        function hideLoading() {
+            document.getElementById('loadingScreen').style.display = 'none';
+        }
+
+        function showError(message) {
+            hideLoading();
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('errorScreen').style.display = 'block';
+            document.getElementById('mainContent').classList.remove('active');
+        }
+
+        function hideError() {
+            document.getElementById('errorScreen').style.display = 'none';
+        }
+
+        function showUploadSection() {
+            document.getElementById('errorScreen').style.display = 'none';
+            document.getElementById('uploadSection').style.display = 'block';
+        }
+
+        // Render everything
+        function renderEverything() {
+            updateMonthDisplay();
+            populateEmployeeSelect();
+            renderSummary();
+            renderEmployeeStats();
+            renderCalendar();
+        }
+
+        function populateEmployeeSelect() {
+            const select = document.getElementById('employeeSelect');
+            select.innerHTML = '<option value="all">All Employees</option>';
+            
+            allEmployees.forEach(emp => {
+                const option = document.createElement('option');
+                option.value = emp;
+                option.textContent = emp;
+                select.appendChild(option);
+            });
+            
+            select.addEventListener('change', (e) => {
+                selectedEmployee = e.target.value;
+                renderSummary();
+                renderEmployeeStats();
+                renderCalendar();
+                
+                const downloadBtn = document.getElementById('downloadIndividualBtn');
+                const chartBtn = document.getElementById('showChartBtn');
+                
+                if (selectedEmployee !== 'all') {
+                    downloadBtn.style.display = 'block';
+                    downloadBtn.textContent = `👤 Download ${selectedEmployee}'s Roster`;
+                    chartBtn.style.display = 'block';
+                } else {
+                    downloadBtn.style.display = 'none';
+                    chartBtn.style.display = 'none';
+                }
+            });
+        }
+
+        function calculateStats() {
+            const employeeStats = {};
+            
+            allEmployees.forEach(emp => {
+                employeeStats[emp] = {
+                    morning: 0,
+                    afternoon: 0,
+                    night: 0,
+                    daysOff: 0,
+                    total: 0,
+                    maxConsecutive: 0,
+                    currentStreak: 0
+                };
+            });
+
+            rosterData.forEach(day => {
+                const workingToday = new Set();
+                
+                day.morning.forEach(emp => {
+                    if (employeeStats[emp]) {
+                        employeeStats[emp].morning++;
+                        employeeStats[emp].total++;
+                        workingToday.add(emp);
+                    }
+                });
+                day.afternoon.forEach(emp => {
+                    if (employeeStats[emp]) {
+                        employeeStats[emp].afternoon++;
+                        if (!workingToday.has(emp)) {
+                            employeeStats[emp].total++;
+                            workingToday.add(emp);
+                        }
+                    }
+                });
+                day.night.forEach(emp => {
+                    if (employeeStats[emp]) {
+                        employeeStats[emp].night++;
+                        if (!workingToday.has(emp)) {
+                            employeeStats[emp].total++;
+                            workingToday.add(emp);
+                        }
+                    }
+                });
+                day.weekOff.forEach(emp => {
+                    if (employeeStats[emp]) {
+                        employeeStats[emp].daysOff++;
+                    }
+                });
+                
+                allEmployees.forEach(emp => {
+                    if (workingToday.has(emp)) {
+                        employeeStats[emp].currentStreak++;
+                        employeeStats[emp].maxConsecutive = Math.max(
+                            employeeStats[emp].maxConsecutive, 
+                            employeeStats[emp].currentStreak
+                        );
+                    } else {
+                        employeeStats[emp].currentStreak = 0;
+                    }
+                });
+            });
+
+            return employeeStats;
+        }
+
+        function renderSummary() {
+            const stats = calculateStats();
+            
+            if (selectedEmployee === 'all') {
+                const totalShifts = Object.values(stats).reduce((sum, emp) => sum + emp.total, 0);
+                const avgShifts = allEmployees.length > 0 ? (totalShifts / allEmployees.length).toFixed(1) : 0;
+                const totalDaysOff = Object.values(stats).reduce((sum, emp) => sum + emp.daysOff, 0);
+                const avgDaysOff = allEmployees.length > 0 ? (totalDaysOff / allEmployees.length).toFixed(1) : 0;
+                const nightShiftWorkers = allEmployees.filter(emp => stats[emp].night > 0).length;
+                
+                const summaryHTML = `
+                    <div class="stat-card">
+                        <h3>Total Employees</h3>
+                        <div class="stat-value">${allEmployees.length}</div>
+                        <div class="stat-label">Active team members</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Shifts</h3>
+                        <div class="stat-value">${totalShifts}</div>
+                        <div class="stat-label">Across all employees</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Average Shifts</h3>
+                        <div class="stat-value">${avgShifts}</div>
+                        <div class="stat-label">Per employee</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Average Days Off</h3>
+                        <div class="stat-value">${avgDaysOff}</div>
+                        <div class="stat-label">Per employee</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Night Shift Workers</h3>
+                        <div class="stat-value">${nightShiftWorkers}</div>
+                        <div class="stat-label">Out of ${allEmployees.length} total</div>
+                    </div>
+                `;
+                document.getElementById('summary').innerHTML = summaryHTML;
+            } else {
+                const empStats = stats[selectedEmployee];
+                
+                const summaryHTML = `
+                    <div class="stat-card">
+                        <h3>Total Shifts</h3>
+                        <div class="stat-value">${empStats.total}</div>
+                        <div class="stat-label">${selectedEmployee}</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Morning Shifts</h3>
+                        <div class="stat-value">${empStats.morning}</div>
+                        <div class="stat-label">${((empStats.morning/empStats.total)*100).toFixed(1)}% of total</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Afternoon Shifts</h3>
+                        <div class="stat-value">${empStats.afternoon}</div>
+                        <div class="stat-label">${((empStats.afternoon/empStats.total)*100).toFixed(1)}% of total</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Night Shifts</h3>
+                        <div class="stat-value">${empStats.night}</div>
+                        <div class="stat-label">${empStats.total > 0 ? ((empStats.night/empStats.total)*100).toFixed(1) : 0}% of total</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Days Off</h3>
+                        <div class="stat-value">${empStats.daysOff}</div>
+                        <div class="stat-label">${selectedEmployee}</div>
+                    </div>
+                `;
+                document.getElementById('summary').innerHTML = summaryHTML;
+            }
+        }
+
+        function createShiftChart(empName) {
+            const stats = calculateStats()[empName];
+            const ctx = document.getElementById('shiftChart');
+            
+            if (shiftChart) {
+                shiftChart.destroy();
+            }
+            
+            const styles = getComputedStyle(document.documentElement);
+            const morningColor = styles.getPropertyValue('--morning').trim();
+            const afternoonColor = styles.getPropertyValue('--afternoon').trim();
+            const nightColor = styles.getPropertyValue('--night').trim();
+            
+            shiftChart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: ['Morning', 'Afternoon', 'Night'],
+                    datasets: [{
+                        data: [stats.morning, stats.afternoon, stats.night],
+                        backgroundColor: [morningColor, afternoonColor, nightColor],
+                        borderWidth: 2,
+                        borderColor: styles.getPropertyValue('--bg-card').trim()
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: styles.getPropertyValue('--text-primary').trim(),
+                                font: { size: 14, family: 'DM Sans' },
+                                padding: 15
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = stats.morning + stats.afternoon + stats.night;
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return `${label}: ${value} shifts (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderEmployeeStats() {
+            const stats = calculateStats();
+            let html = '';
+
+            const employeesToShow = selectedEmployee === 'all' 
+                ? allEmployees 
+                : [selectedEmployee];
+
+            employeesToShow.forEach(empName => {
+                const data = stats[empName];
+                const isSelected = empName === selectedEmployee && selectedEmployee !== 'all';
+                
+                html += `
+                    <div class="employee-card ${isSelected ? 'selected' : ''}" onclick="selectEmployee('${empName}')">
+                        <div class="employee-name">${empName}</div>
+                        <div class="shift-breakdown">
+                            <div class="shift-item">
+                                <div class="shift-label">
+                                    <div class="shift-dot dot-morning"></div>
+                                    <span>Morning</span>
+                                </div>
+                                <span>${data.morning}</span>
+                            </div>
+                            <div class="shift-item">
+                                <div class="shift-label">
+                                    <div class="shift-dot dot-afternoon"></div>
+                                    <span>Afternoon</span>
+                                </div>
+                                <span>${data.afternoon}</span>
+                            </div>
+                            <div class="shift-item">
+                                <div class="shift-label">
+                                    <div class="shift-dot dot-night"></div>
+                                    <span>Night</span>
+                                </div>
+                                <span>${data.night}</span>
+                            </div>
+                            <div class="shift-item">
+                                <div class="shift-label">
+                                    <div class="shift-dot dot-off"></div>
+                                    <span>Days Off</span>
+                                </div>
+                                <span>${data.daysOff}</span>
+                            </div>
+                            <div class="shift-item" style="background: rgba(74, 158, 255, 0.2); border: 1px solid var(--accent-blue);">
+                                <span>Max Consecutive</span>
+                                <span style="color: var(--accent-orange); font-weight: 700;">${data.maxConsecutive}</span>
+                            </div>
+                            <div class="shift-item" style="background: var(--accent-blue); color: white; font-weight: 600; margin-top: 0.5rem;">
+                                <span>Total Shifts</span>
+                                <span>${data.total}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            document.getElementById('employeeStats').innerHTML = html;
+        }
+
+        function selectEmployee(empName) {
+            const select = document.getElementById('employeeSelect');
+            select.value = empName;
+            select.dispatchEvent(new Event('change'));
+        }
+
+        function renderCalendar() {
+            const grid = document.getElementById('calendarGrid');
+            grid.innerHTML = '';
+            
+            const monthName = getMonthName(currentMonth);
+            document.getElementById('calendarTitle').textContent = `${monthName} ${currentYear} Calendar`;
+            
+            const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+            days.forEach(day => {
+                const header = document.createElement('div');
+                header.className = 'day-header';
+                header.textContent = day;
+                grid.appendChild(header);
+            });
+
+            if (rosterData.length > 0) {
+                const firstDay = new Date(rosterData[0].date).getDay();
+                for (let i = 0; i < firstDay; i++) {
+                    const empty = document.createElement('div');
+                    grid.appendChild(empty);
+                }
+            }
+
+            const filteredData = selectedEmployee === 'all' 
+                ? rosterData 
+                : rosterData.map(day => ({
+                    ...day,
+                    morning: day.morning.filter(e => e === selectedEmployee),
+                    afternoon: day.afternoon.filter(e => e === selectedEmployee),
+                    night: day.night.filter(e => e === selectedEmployee),
+                    weekOff: day.weekOff.filter(e => e === selectedEmployee)
+                }));
+
+            filteredData.forEach((day, index) => {
+                const cell = document.createElement('div');
+                cell.className = 'day-cell';
+                
+                if (selectedEmployee !== 'all' && day.weekOff.includes(selectedEmployee)) {
+                    cell.classList.add('has-off');
+                }
+                
+                cell.onclick = () => showDayDetails(index);
+                
+                const dayNum = index + 1;
+
+                let html = `
+                    <div class="day-number">${dayNum}</div>
+                    <div class="day-name">${day.day}</div>
+                `;
+
+                if (day.morning.length > 0) {
+                    html += `
+                        <div class="shift-section">
+                            <div class="shift-title shift-morning">☀️ Morning</div>
+                            <div class="shift-names">${day.morning.join(', ')}</div>
+                        </div>
+                    `;
+                }
+
+                if (day.afternoon.length > 0) {
+                    html += `
+                        <div class="shift-section">
+                            <div class="shift-title shift-afternoon">🌤️ Afternoon</div>
+                            <div class="shift-names">${day.afternoon.join(', ')}</div>
+                        </div>
+                    `;
+                }
+
+                if (day.night.length > 0) {
+                    html += `
+                        <div class="shift-section">
+                            <div class="shift-title shift-night">🌙 Night</div>
+                            <div class="shift-names">${day.night.join(', ')}</div>
+                        </div>
+                    `;
+                }
+
+                if (day.weekOff.length > 0) {
+                    html += `
+                        <div class="shift-section">
+                            <div class="shift-title shift-off">🏖️ Off</div>
+                            <div class="shift-names">${day.weekOff.join(', ')}</div>
+                        </div>
+                    `;
+                }
+
+                cell.innerHTML = html;
+                grid.appendChild(cell);
+            });
+        }
+
+        function showDayDetails(dayIndex) {
+            const day = rosterData[dayIndex];
+            const dayNum = dayIndex + 1;
+            const date = new Date(currentYear, currentMonth - 1, dayNum);
+            const formattedDate = date.toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            });
+
+            document.getElementById('modalTitle').textContent = formattedDate;
+
+            let bodyHTML = '';
+
+            const filteredDay = selectedEmployee === 'all' ? day : {
+                morning: day.morning.filter(e => e === selectedEmployee),
+                afternoon: day.afternoon.filter(e => e === selectedEmployee),
+                night: day.night.filter(e => e === selectedEmployee),
+                weekOff: day.weekOff.filter(e => e === selectedEmployee)
+            };
+
+            if (filteredDay.morning.length > 0) {
+                bodyHTML += `
+                    <div class="modal-section">
+                        <div class="modal-shift-item morning">
+                            <div class="modal-shift-header">☀️ Morning Shift (6 AM - 3 PM)</div>
+                            <div class="modal-shift-people">${filteredDay.morning.join('<br>')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (filteredDay.afternoon.length > 0) {
+                bodyHTML += `
+                    <div class="modal-section">
+                        <div class="modal-shift-item afternoon">
+                            <div class="modal-shift-header">🌤️ Afternoon Shift (2 PM - 11 PM)</div>
+                            <div class="modal-shift-people">${filteredDay.afternoon.join('<br>')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (filteredDay.night.length > 0) {
+                bodyHTML += `
+                    <div class="modal-section">
+                        <div class="modal-shift-item night">
+                            <div class="modal-shift-header">🌙 Night Shift (10 PM - 7 AM)</div>
+                            <div class="modal-shift-people">${filteredDay.night.join('<br>')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (filteredDay.weekOff.length > 0) {
+                bodyHTML += `
+                    <div class="modal-section">
+                        <div class="modal-shift-item off">
+                            <div class="modal-shift-header">🏖️ Day Off</div>
+                            <div class="modal-shift-people">${filteredDay.weekOff.join('<br>')}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (!bodyHTML) {
+                bodyHTML = '<p style="color: var(--text-secondary); text-align: center;">No shifts scheduled for this person on this day</p>';
+            }
+
+            document.getElementById('modalBody').innerHTML = bodyHTML;
+            document.getElementById('dayModal').classList.add('active');
+        }
+
+        function closeDayModal() {
+            document.getElementById('dayModal').classList.remove('active');
+        }
+
+        function showChartModal() {
+            if (selectedEmployee === 'all') return;
+            
+            document.getElementById('chartModalTitle').textContent = `${selectedEmployee} - Shift Distribution`;
+            document.getElementById('chartModal').classList.add('active');
+            
+            setTimeout(() => {
+                createShiftChart(selectedEmployee);
+            }, 100);
+        }
+
+        function closeChartModal() {
+            document.getElementById('chartModal').classList.remove('active');
+        }
+
+        document.getElementById('dayModal').addEventListener('click', (e) => {
+            if (e.target.id === 'dayModal') {
+                closeDayModal();
+            }
+        });
+
+        document.getElementById('chartModal').addEventListener('click', (e) => {
+            if (e.target.id === 'chartModal') {
+                closeChartModal();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeDayModal();
+                closeChartModal();
+            }
+        });
+
+        function scrollToCalendar() {
+            document.getElementById('calendar').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function downloadAllExcel() {
+            const wb = XLSX.utils.book_new();
+            
+            const excelData = [
+                ['Date / Day', '', 'Morning Shift (6 AM - 3 PM)', 'Afternoon Shift (2 PM - 11 PM )', 'Night Shift (10 PM - 7 AM)', 'Week off']
+            ];
+
+            rosterData.forEach((day, index) => {
+                const dayNum = index + 1;
+                const date = new Date(currentYear, currentMonth - 1, dayNum);
+                excelData.push([
+                    date,
+                    day.day,
+                    day.morning.join(', '),
+                    day.afternoon.join(', '),
+                    day.night.join(', '),
+                    day.weekOff.join(', ')
+                ]);
+            });
+
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            
+            ws['!cols'] = [
+                { wch: 12 },
+                { wch: 12 },
+                { wch: 30 },
+                { wch: 30 },
+                { wch: 30 },
+                { wch: 30 }
+            ];
+
+            const monthName = getMonthName(currentMonth);
+            XLSX.utils.book_append_sheet(wb, ws, 'SOC SHIFT');
+            XLSX.writeFile(wb, `${currentYear}-${String(currentMonth).padStart(2, '0')}_Shift_Roster.xlsx`);
+        }
+
+        function downloadIndividualExcel() {
+            if (selectedEmployee === 'all') return;
+
+            const stats = calculateStats()[selectedEmployee];
+            const wb = XLSX.utils.book_new();
+            
+            const monthName = getMonthName(currentMonth);
+            const summaryData = [
+                ['Employee Shift Summary'],
+                [''],
+                ['Name:', selectedEmployee],
+                ['Month:', `${monthName} ${currentYear}`],
+                [''],
+                ['Shift Type', 'Count', 'Percentage'],
+                ['Morning Shifts', stats.morning, `${((stats.morning/stats.total)*100).toFixed(1)}%`],
+                ['Afternoon Shifts', stats.afternoon, `${((stats.afternoon/stats.total)*100).toFixed(1)}%`],
+                ['Night Shifts', stats.night, `${((stats.night/stats.total)*100).toFixed(1)}%`],
+                ['Days Off', stats.daysOff, ''],
+                ['Total Shifts', stats.total, ''],
+                ['Max Consecutive Days', stats.maxConsecutive, '']
+            ];
+
+            const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+            const rosterSheetData = [
+                ['Date', 'Day', 'Morning Shift', 'Afternoon Shift', 'Night Shift', 'Week Off']
+            ];
+
+            rosterData.forEach((day, index) => {
+                const dayNum = index + 1;
+                const date = new Date(currentYear, currentMonth - 1, dayNum);
+                const hasMorning = day.morning.includes(selectedEmployee);
+                const hasAfternoon = day.afternoon.includes(selectedEmployee);
+                const hasNight = day.night.includes(selectedEmployee);
+                const hasOff = day.weekOff.includes(selectedEmployee);
+
+                rosterSheetData.push([
+                    date,
+                    day.day,
+                    hasMorning ? selectedEmployee : '',
+                    hasAfternoon ? selectedEmployee : '',
+                    hasNight ? selectedEmployee : '',
+                    hasOff ? selectedEmployee : ''
+                ]);
+            });
+
+            const rosterSheet = XLSX.utils.aoa_to_sheet(rosterSheetData);
+            rosterSheet['!cols'] = [
+                { wch: 12 },
+                { wch: 12 },
+                { wch: 20 },
+                { wch: 20 },
+                { wch: 20 },
+                { wch: 15 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, rosterSheet, 'Roster');
+            XLSX.writeFile(wb, `${selectedEmployee}_${currentYear}-${String(currentMonth).padStart(2, '0')}_Roster.xlsx`);
+        }
+    </script>
+</body>
+</html>
